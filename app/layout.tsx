@@ -1,30 +1,30 @@
-import type { Metadata } from "next";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 
 // Fonts
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const geistSans = localFont({
+  src: "../public/fonts/Geist.woff2",
+  variable: "--font-geist-sans",
+});
+const geistMono = localFont({
+  src: "../public/fonts/GeistMono.woff2",
+  variable: "--font-geist-mono",
+});
 
-// Metadata (merged)
-export const metadata: Metadata = {
+// Metadata
+export const metadata = {
   title: "Reddit Growth || Reddit Account Management",
   description: "Reddit Growth - Reddit Account Management",
 };
 
 // Root layout
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Toaster />
         {children}
       </body>
