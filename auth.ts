@@ -1,5 +1,5 @@
 // auth.ts
-import NextAuth from "next-auth";
+import NextAuth from "next-auth/edge"; // ✅ use edge runtime version
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
