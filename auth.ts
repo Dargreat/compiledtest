@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"; // ✅ correct import for v5
+import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
@@ -9,14 +9,14 @@ const ADMIN_EMAILS = ["aminofab@gmail.com", "eminselimaslan@gmail.com"];
 const isAdminEmail = (email?: string | null) =>
   ADMIN_EMAILS.includes(email?.toLowerCase() ?? "");
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+// Create the auth configuration
+export const authOptions = {
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
   },
   adapter: PrismaAdapter(db),
   session: { strategy: "jwt" },
-
   events: {
     async linkAccount({ user, account, profile }) {
       if (account?.provider === "google" || account?.provider === "github") {
@@ -47,7 +47,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     },
   },
-
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false;
@@ -76,7 +75,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-
     async session({ token, session }) {
       if (token.sub && session.user) {
         session.user.id = token.sub;
@@ -90,7 +88,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
-
     async jwt({ token }) {
       if (!token.sub) return token;
       const existingUser = await getUserById(token.sub);
@@ -118,6 +115,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
   },
-
   ...authConfig,
-});
+};
+
+// Edge-compatible export
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
