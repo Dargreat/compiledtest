@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p && prisma generate && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "npm install -D tailwindcss postcss autoprefixer && prisma generate"
