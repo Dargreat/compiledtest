@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { withAuth } from "next-auth/middleware";
 import {
   DEFAULT_LOGIN_REDIRECT,
   apiAuthPrefix,
@@ -8,39 +8,47 @@ import {
   adminRoutes,
 } from "@/routes";
 
-export default auth((req) => {
-  const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
-
-  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
-  const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
-  const isAuthRoute = authRoutes.includes(nextUrl.pathname);
-  const isAdminRoute = adminRoutes.some((route) =>
-    nextUrl.pathname.startsWith(route)
-  );
-
-  if (isApiAuthRoute) return;
-
-  if (isAuthRoute && isLoggedIn) {
-    return NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
-  }
-
-  if (!isLoggedIn && !isPublicRoute) {
-    const callbackUrl = encodeURIComponent(nextUrl.href);
-    return NextResponse.redirect(
-      new URL(`/auth/login?callbackUrl=${callbackUrl}`, nextUrl)
+export default withAuth(
+  function middleware(req) {
+    const { nextUrl } = req;
+    const isAdminRoute = adminRoutes.some((route) =>
+      nextUrl.pathname.startsWith(route)
     );
-  }
 
-  if (isAdminRoute) {
-    const isAdmin = req.auth?.user?.role === "ADMIN";
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/unauthorized", nextUrl));
+    // Handle admin routes
+    if (isAdminRoute) {
+      const isAdmin = req.nextauth.token?.role === "ADMIN";
+      if (!isAdmin) {
+        return NextResponse.redirect(new URL("/unauthorized", nextUrl));
+      }
     }
-  }
 
-  return NextResponse.next();
-});
+    return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: ({ req, token }) => {
+        const { nextUrl } = req;
+        
+        const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
+        const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
+        const isAuthRoute = authRoutes.includes(nextUrl.pathname);
+        
+        if (isApiAuthRoute) return true;
+        
+        if (isAuthRoute) {
+          return !token; // Allow access if not logged in
+        }
+        
+        if (!token && !isPublicRoute) {
+          return false;
+        }
+        
+        return true;
+      },
+    },
+  }
+);
 
 export const config = {
   matcher: [
@@ -50,4 +58,3 @@ export const config = {
     "/reddit-analytics/:path*",
   ],
 };
-
