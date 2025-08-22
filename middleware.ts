@@ -1,59 +1,57 @@
 // middleware.ts
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/auth"; // ✅ safe for edge
+import {
+  DEFAULT_LOGIN_REDIRECT,
+  apiAuthPrefix,
+  authRoutes,
+  publicRoutes,
+  adminRoutes,
+} from "@/routes";
 
-// ✅ Our Edge-compatible middleware
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
-  // role checks
-  const isAdmin = req.auth?.user?.role === "ADMIN";
-  const isAuthRoute = nextUrl.pathname.startsWith("/auth");
-  const isAdminRoute = nextUrl.pathname.startsWith("/admin");
-  const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
-  const isPublicRoute = ["/", "/pricing"].includes(nextUrl.pathname);
+  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
+  const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
+  const isAuthRoute = authRoutes.includes(nextUrl.pathname);
+  const isAdminRoute = adminRoutes.some((route) =>
+    nextUrl.pathname.startsWith(route)
+  );
 
-  // --- Route protections ---
+  // Allow API auth routes
+  if (isApiAuthRoute) return;
 
-  // 1. Block access to /api/auth routes
-  if (isApiAuthRoute) {
-    return null; // let NextAuth handle
+  // Redirect logged-in users away from auth pages
+  if (isAuthRoute && isLoggedIn) {
+    return NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
   }
 
-  // 2. Auth pages (login/register)
-  if (isAuthRoute) {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/reddit-analytics", nextUrl));
+  // Redirect guests to login
+  if (!isLoggedIn && !isPublicRoute) {
+    const callbackUrl = encodeURIComponent(nextUrl.pathname);
+    return NextResponse.redirect(
+      new URL(`/auth/login?callbackUrl=${callbackUrl}`, nextUrl)
+    );
+  }
+
+  // Block admin-only routes
+  if (isAdminRoute) {
+    const isAdmin = req.auth?.user?.role === "ADMIN";
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL("/unauthorized", nextUrl));
     }
-    return null; // allow access to login/register
   }
 
-  // 3. Admin pages
-  if (isAdminRoute && !isAdmin) {
-    return NextResponse.redirect(new URL("/", nextUrl));
-  }
-
-  // 4. Public pages
-  if (isPublicRoute) {
-    return null; // let through
-  }
-
-  // 5. Protected pages (everything else)
-  if (!isLoggedIn) {
-    return NextResponse.redirect(new URL("/auth/login", nextUrl));
-  }
-
-  return null; // allow
+  return NextResponse.next();
 });
 
-// ✅ Apply middleware to selected routes
 export const config = {
   matcher: [
     "/((?!.+\\.[\\w]+$|_next).*)",
     "/",
     "/(api|trpc)(.*)",
-    "/reddit-analytics/:path*"
+    "/reddit-analytics/:path*",
   ],
 };
