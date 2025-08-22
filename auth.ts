@@ -1,4 +1,4 @@
-import NextAuth from "next-auth/edge"; // ✅ edge runtime
+import NextAuth from "next-auth"; // ✅ correct import for v5
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
@@ -96,7 +96,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const existingUser = await getUserById(token.sub);
       if (!existingUser) return token;
 
-      if (isAdminEmail(existingUser.email) && existingUser.role !== UserRole.ADMIN) {
+      if (
+        isAdminEmail(existingUser.email) &&
+        existingUser.role !== UserRole.ADMIN
+      ) {
         await db.user.update({
           where: { id: existingUser.id },
           data: { role: UserRole.ADMIN },
