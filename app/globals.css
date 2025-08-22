@@ -40,11 +40,11 @@ body,
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
 
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -70,7 +70,7 @@ body,
 }
 
 /* -------------------------------
-   Fallback: HSL variables
+   Base: HSL fallback
 --------------------------------*/
 @layer base {
   :root {
@@ -236,6 +236,7 @@ body,
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
