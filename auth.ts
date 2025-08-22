@@ -1,5 +1,4 @@
-// auth.ts
-import NextAuth from "next-auth/edge"; // ✅ use edge runtime version
+import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
@@ -11,18 +10,15 @@ const ADMIN_EMAILS = ["aminofab@gmail.com", "eminselimaslan@gmail.com"];
 const isAdminEmail = (email?: string | null) =>
   ADMIN_EMAILS.includes(email?.toLowerCase() ?? "");
 
-export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
-} = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig, // keep your provider setup in auth.config.ts
+  adapter: PrismaAdapter(db),
+  session: { strategy: "jwt" },
+
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
   },
-  adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
 
   events: {
     async linkAccount({ user, account, profile }) {
@@ -74,7 +70,10 @@ export const {
       const existingUser = await getUserById(user.id ?? "");
       if (!existingUser?.emailVerified) return false;
 
-      if (isAdminEmail(existingUser.email) && existingUser.role !== UserRole.ADMIN) {
+      if (
+        isAdminEmail(existingUser.email) &&
+        existingUser.role !== UserRole.ADMIN
+      ) {
         await db.user.update({
           where: { id: user.id },
           data: { role: UserRole.ADMIN },
@@ -102,7 +101,10 @@ export const {
       const existingUser = await getUserById(token.sub);
       if (!existingUser) return token;
 
-      if (isAdminEmail(existingUser.email) && existingUser.role !== UserRole.ADMIN) {
+      if (
+        isAdminEmail(existingUser.email) &&
+        existingUser.role !== UserRole.ADMIN
+      ) {
         await db.user.update({
           where: { id: existingUser.id },
           data: { role: UserRole.ADMIN },
@@ -110,7 +112,9 @@ export const {
         existingUser.role = UserRole.ADMIN;
       }
 
-      token.name = `${existingUser.firstName || ""} ${existingUser.lastName || ""}`.trim();
+      token.name = `${existingUser.firstName || ""} ${
+        existingUser.lastName || ""
+      }`.trim();
       token.firstName = existingUser.firstName;
       token.lastName = existingUser.lastName;
       token.email = existingUser.email;
@@ -121,6 +125,4 @@ export const {
       return token;
     },
   },
-
-  ...authConfig,
 });
