@@ -118,6 +118,8 @@ export const authOptions = {
   ...authConfig,
 };
 
-// Edge-compatible export
+// Edge-compatible handler
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+
+// ✅ Exports to fix previous import errors
+export { handler as GET, handler as POST, handler as auth, handler as handlers };
