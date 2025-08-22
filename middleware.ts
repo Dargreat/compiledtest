@@ -1,6 +1,5 @@
-// middleware.ts
 import { NextResponse } from "next/server";
-import { auth } from "@/auth"; // ✅ safe for edge
+import { auth } from "@/auth";
 import {
   DEFAULT_LOGIN_REDIRECT,
   apiAuthPrefix,
@@ -20,23 +19,19 @@ export default auth((req) => {
     nextUrl.pathname.startsWith(route)
   );
 
-  // Allow API auth routes
   if (isApiAuthRoute) return;
 
-  // Redirect logged-in users away from auth pages
   if (isAuthRoute && isLoggedIn) {
     return NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
   }
 
-  // Redirect guests to login
   if (!isLoggedIn && !isPublicRoute) {
-    const callbackUrl = encodeURIComponent(nextUrl.pathname);
+    const callbackUrl = encodeURIComponent(nextUrl.href);
     return NextResponse.redirect(
       new URL(`/auth/login?callbackUrl=${callbackUrl}`, nextUrl)
     );
   }
 
-  // Block admin-only routes
   if (isAdminRoute) {
     const isAdmin = req.auth?.user?.role === "ADMIN";
     if (!isAdmin) {
