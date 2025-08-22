@@ -1,20 +1,15 @@
 // auth.ts
-import NextAuth, { type NextAuthConfig } from "next-auth";
-import authConfig from "@/auth.config";
+import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import authConfig from "@/auth.config";
 import { getUserById } from "@/data/user";
 import db from "@/lib/db";
 import { UserRole } from "@prisma/client";
 
-// List of admin emails
-const ADMIN_EMAILS = [
-  "aminofab@gmail.com",
-  "eminselimaslan@gmail.com",
-];
-
-const isAdminEmail = (email: string | null | undefined): boolean => {
-  return ADMIN_EMAILS.includes(email?.toLowerCase() ?? "");
-};
+// Admin whitelist
+const ADMIN_EMAILS = ["aminofab@gmail.com", "eminselimaslan@gmail.com"];
+const isAdminEmail = (email?: string | null) =>
+  ADMIN_EMAILS.includes(email?.toLowerCase() ?? "");
 
 export const {
   handlers: { GET, POST },
@@ -26,15 +21,18 @@ export const {
     signIn: "/auth/login",
     error: "/auth/error",
   },
+  adapter: PrismaAdapter(db),
+  session: { strategy: "jwt" },
+
   events: {
     async linkAccount({ user, account, profile }) {
       if (account?.provider === "google" || account?.provider === "github") {
         const email = profile?.email?.toLowerCase();
         const isAdmin = isAdminEmail(email);
-        
+
         const updateData: any = {
           emailVerified: new Date(),
-          role: isAdmin ? UserRole.ADMIN : UserRole.USER
+          role: isAdmin ? UserRole.ADMIN : UserRole.USER,
         };
 
         if (profile?.name) {
@@ -42,65 +40,50 @@ export const {
           updateData.firstName = firstName;
           updateData.lastName = lastNameParts.join(" ");
         }
-
-        if (email) {
-          updateData.email = email;
-        }
-
-        if (profile?.image) {
-          updateData.image = profile.image;
-        }
+        if (email) updateData.email = email;
+        if (profile?.image) updateData.image = profile.image;
 
         try {
-          const updatedUser = await db.user.update({
+          await db.user.update({
             where: { id: user.id },
             data: updateData,
           });
-          console.log("User updated in linkAccount:", updatedUser);
         } catch (error) {
           console.error("Error updating user in linkAccount:", error);
-          throw error;
         }
       }
     },
   },
+
   callbacks: {
     async signIn({ user, account }) {
-      console.log("SignIn callback:", { user, account });
-
       if (!user.email) return false;
-      
-      // For OAuth providers
+
+      // For OAuth
       if (account?.provider !== "credentials") {
-        const isAdmin = isAdminEmail(user.email);
-if (isAdmin && user?.id) {
-  await db.user.update({
-    where: { id: user.id },
-    data: { role: UserRole.ADMIN },
-  });
-}
+        if (isAdminEmail(user.email) && user.id) {
+          await db.user.update({
+            where: { id: user.id },
+            data: { role: UserRole.ADMIN },
+          });
+        }
         return true;
       }
 
-      // For credentials provider
-      const existingUser = await getUserById(user?.id ?? '');
+      // For credentials
+      const existingUser = await getUserById(user.id ?? "");
       if (!existingUser?.emailVerified) return false;
 
-      // Update role if needed
-      const isAdmin = isAdminEmail(existingUser.email);
-      if (isAdmin && existingUser.role !== UserRole.ADMIN) {
+      if (isAdminEmail(existingUser.email) && existingUser.role !== UserRole.ADMIN) {
         await db.user.update({
           where: { id: user.id },
           data: { role: UserRole.ADMIN },
         });
       }
-
       return true;
     },
 
     async session({ token, session }) {
-      console.log("Session callback - Input:", { token, session });
-      
       if (token.sub && session.user) {
         session.user.id = token.sub;
         session.user.name = token.name as string;
@@ -111,22 +94,15 @@ if (isAdmin && user?.id) {
         session.user.image = token.picture as string;
         session.user.emailVerified = token.emailVerified as Date | null;
       }
-
-      console.log("Session callback - Output:", session);
       return session;
     },
 
-    async jwt({ token, user, account, profile }) {
-      console.log("JWT callback - Input:", { token, user, account, profile });
-      
+    async jwt({ token }) {
       if (!token.sub) return token;
-
       const existingUser = await getUserById(token.sub);
       if (!existingUser) return token;
 
-      // Check and update admin status
-      const isAdmin = isAdminEmail(existingUser.email);
-      if (isAdmin && existingUser.role !== UserRole.ADMIN) {
+      if (isAdminEmail(existingUser.email) && existingUser.role !== UserRole.ADMIN) {
         await db.user.update({
           where: { id: existingUser.id },
           data: { role: UserRole.ADMIN },
@@ -134,7 +110,7 @@ if (isAdmin && user?.id) {
         existingUser.role = UserRole.ADMIN;
       }
 
-      token.name = `${existingUser.firstName || ''} ${existingUser.lastName || ''}`.trim();
+      token.name = `${existingUser.firstName || ""} ${existingUser.lastName || ""}`.trim();
       token.firstName = existingUser.firstName;
       token.lastName = existingUser.lastName;
       token.email = existingUser.email;
@@ -142,11 +118,9 @@ if (isAdmin && user?.id) {
       token.picture = existingUser.image;
       token.emailVerified = existingUser.emailVerified;
 
-      console.log("JWT callback - Output token:", token);
       return token;
     },
   },
-  adapter: PrismaAdapter(db),
-  session: { strategy: "jwt" },
+
   ...authConfig,
 });
